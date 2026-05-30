@@ -50,5 +50,7 @@ public interface StockService {
 	String viewSell(String ticker, HttpSession session, Model model);
 
 	String sellStocks(double quantity, String ticker, HttpSession session);
+	
+	String addMoney(double amount, HttpSession session);
 
 }

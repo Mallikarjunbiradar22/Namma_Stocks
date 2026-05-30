@@ -4,6 +4,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Transient;
 
 @Entity
 public class UserStocksTransaction {
@@ -13,6 +14,16 @@ public class UserStocksTransaction {
 	private String stock_ticker;
 	private double quantity;
 	private double price;
+	@Transient
+	private double profitLoss;
+
+	public double getProfitLoss() {
+		return profitLoss;
+	}
+
+	public void setProfitLoss(double profitLoss) {
+		this.profitLoss = profitLoss;
+	}
 
 	public int getId() {
 		return id;

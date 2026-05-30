@@ -104,9 +104,13 @@ public class StockServiceImpl implements StockService {
 			user.setOtp(generateOtp());
 			sendEmail(user);
 			user.setPassword(AES.encrypt(user.getPassword()));
-			userRepository.save(user);
-			session.setAttribute("pass", "Otp Sent Success, check your email and Enter OTP");
-			return "redirect:/otp/" + user.getId();
+
+			User savedUser = userRepository.save(user);
+
+			session.setAttribute("pass",
+					"Otp Sent Success, check your email and Enter OTP");
+
+			return "redirect:/otp/" + savedUser.getId();
 		}
 	}
 
@@ -194,7 +198,7 @@ public class StockServiceImpl implements StockService {
 		MimeMessage message = mailSender.createMimeMessage();
 		MimeMessageHelper helper = new MimeMessageHelper(message);
 		try {
-			helper.setFrom("saishkulkarni7@gmail.com", "NammaStocks");
+			helper.setFrom("maheshbiradar698@gmail.com", "NammaStocks");
 			helper.setTo(user.getEmail());
 			helper.setSubject("OTP for Account Creation");
 			helper.setText("<div style='background-color: #f8f9fa; padding: 20px; border-radius: 10px; font-family: Arial, sans-serif;'>"
@@ -207,10 +211,14 @@ public class StockServiceImpl implements StockService {
 			+ "<p style='font-size: 14px; color: #6c757d; text-align: center;'>This OTP is valid for a limited time only.</p>"
 			+ "</div>", true);
 			mailSender.send(message);
-		} catch (Exception e) {
-			System.err.println("Unable to Send Email");
-			System.out.println("Hello " + user.getName() + " Your OTP is : " + user.getOtp());
-			session.setAttribute("pass", "OTP is : " + user.getOtp() + " (Displayed here because email sending failed)");
+		}catch (Exception e) {
+		    System.err.println("Unable to Send Email");
+		    e.printStackTrace();
+
+		    System.out.println(
+		        "Hello " + user.getName()
+		        + " Your OTP is : " + user.getOtp()
+		    );
 		}
 	}
 
@@ -226,30 +234,62 @@ public class StockServiceImpl implements StockService {
 
 	@Override
 	public String addStock(HttpSession session, Stock stock) {
-		if (session.getAttribute("admin") != null) {
-			boolean flag = updateStockFromAPI(stock);
-			if (flag) {
-				if (stockRepository.existsById(stock.getTicker())) {
-					session.setAttribute("fail", "Stock Already Present for " + stock.getCompanyName());
-					return "redirect:/";
-				} else {
-					stockRepository.save(stock);
-					session.setAttribute("pass", "Stock Added Success for " + stock.getCompanyName());
-					return "redirect:/";
-				}
-			} else {
-				session.setAttribute("fail", "Stock Not Found for " + stock.getTicker());
-				return "redirect:/";
-			}
-		} else {
-			session.setAttribute("fail", "Invalid Session, Login First");
-			return "redirect:/login";
-		}
-	}
 
+	    if (session.getAttribute("admin") != null) {
+
+	        stock.setTicker(
+	                stock.getTicker()
+	                        .trim()
+	                        .toUpperCase());
+
+	        boolean flag = updateStockFromAPI(stock);
+
+	        if (flag) {
+
+	            if (stockRepository.existsById(
+	                    stock.getTicker())) {
+
+	                session.setAttribute(
+	                        "fail",
+	                        "Stock Already Present for "
+	                                + stock.getTicker());
+
+	                return "redirect:/";
+
+	            } else {
+
+	                stockRepository.save(stock);
+
+	                session.setAttribute(
+	                        "pass",
+	                        "Stock Added Success for "
+	                                + stock.getCompanyName());
+
+	                return "redirect:/";
+	            }
+
+	        } else {
+
+	            session.setAttribute(
+	                    "fail",
+	                    "Stock Not Found for "
+	                            + stock.getTicker());
+
+	            return "redirect:/";
+	        }
+
+	    } else {
+
+	        session.setAttribute(
+	                "fail",
+	                "Invalid Session, Login First");
+
+	        return "redirect:/login";
+	    }
+	}
 	public boolean updateStockFromAPI(Stock stock) {
 		if (stockapikey == null || stockapikey.isEmpty() || stockapikey.equals("YOUR_ALPHA_VANTAGE_KEY")) {
-			return mockUpdate(stock);
+			return false;
 		}
 
 		try {
@@ -258,23 +298,46 @@ public class StockServiceImpl implements StockService {
 			String response = restTemplate.getForObject(url, String.class);
 			JSONObject jsonObject = new JSONObject(response);
 
-			if (jsonObject.has("Global Quote") && !((CharSequence) jsonObject.getJSONObject("Global Quote")).isEmpty()) {
-				JSONObject quote = jsonObject.getJSONObject("Global Quote");
-				stock.setPrice(formatNumber(quote.getString("05. price")));
-				stock.setChanges(Double.parseDouble(quote.getString("09. change")));
-				if (stock.getCompanyName() == null || stock.getCompanyName().isEmpty()) {
-					stock.setCompanyName(fetchCompanyName(stock.getTicker()));
-				}
-				if (stock.getQuantity() == 0) {
-					stock.setQuantity(1000.0);
-				}
-				return true;
-			} else {
-				return mockUpdate(stock);
+			if (jsonObject.has("Global Quote")
+			        && jsonObject.getJSONObject("Global Quote")
+			                .length() > 0) {
+
+			    JSONObject quote =
+			            jsonObject.getJSONObject(
+			                    "Global Quote");
+
+			    stock.setPrice(
+			            formatNumber(
+			                    quote.getString(
+			                            "05. price")));
+
+			    stock.setChanges(
+			            Double.parseDouble(
+			                    quote.getString(
+			                            "09. change")));
+
+			    if (stock.getCompanyName() == null
+			            || stock.getCompanyName()
+			                    .isEmpty()) {
+
+			        stock.setCompanyName(
+			                fetchCompanyName(
+			                        stock.getTicker()));
+			    }
+
+			    if (stock.getQuantity() == 0) {
+			        stock.setQuantity(1000.0);
+			    }
+
+			    return true;
 			}
-		} catch (Exception e) {
-			return mockUpdate(stock);
-		}
+
+			return false;
+
+			} catch (Exception e) {
+			    e.printStackTrace();
+			    return false;
+			}
 	}
 
 	private String fetchCompanyName(String ticker) {
@@ -380,7 +443,8 @@ public class StockServiceImpl implements StockService {
 		if (session.getAttribute("user") != null) {
 
 			RazorpayClient client = new RazorpayClient(razorpayKey, razorpaySecret);
-
+			System.out.println(razorpayKey);
+			System.out.println(razorpaySecret);
 			JSONObject json = new JSONObject();
 			json.put("amount", amount * 100);
 			json.put("currency", "INR");
@@ -501,9 +565,27 @@ public class StockServiceImpl implements StockService {
 
 			for (UserStocksTransaction transaction : transactions) {
 				if (transaction.getStock_ticker().equals(ticker)) {
-					transaction.setQuantity(transaction.getQuantity() + quantity);
-					transaction.setPrice(transaction.getPrice() + price);
-					transactionRepository.save(transaction);
+					double totalOldInvestment =
+					        transaction.getPrice()
+					        * transaction.getQuantity();
+
+					double totalNewInvestment =
+					        totalOldInvestment
+					        + price;
+
+					double totalQuantity =
+					        transaction.getQuantity()
+					        + quantity;
+
+					transaction.setQuantity(
+					        totalQuantity);
+
+					transaction.setPrice(
+					        totalNewInvestment
+					        / totalQuantity);
+
+					transactionRepository.save(
+					        transaction);
 					flag = false;
 					break;
 				}
@@ -543,37 +625,110 @@ public class StockServiceImpl implements StockService {
 	}
 
 	@Override
-	public String viewPortfolio(HttpSession session, Model model) {
-		if (session.getAttribute("user") != null) {
-			User user = (User) session.getAttribute("user");
-			List<UserStocksTransaction> transactions = user.getTransactions();
-			if (transactions.isEmpty()) {
-				session.setAttribute("fail", "No Data to display in Portfolio");
-				return "redirect:/";
-			} else {
-				double totalInvested = transactions.stream().mapToDouble(x -> x.getPrice() * x.getQuantity()).sum();
-				double currentValue = 0;
-				for (UserStocksTransaction transaction : transactions) {
-					Optional<Stock> opStock = stockRepository.findById(transaction.getStock_ticker());
-					if (opStock.isPresent()) {
-						Stock stock = opStock.get();
-						updateStockFromAPI(stock);
-						stockRepository.save(stock);
-						currentValue += (stock.getPrice() * transaction.getQuantity());
-					}
-				}
-				model.addAttribute("totalInvested", totalInvested);
-				model.addAttribute("currentValue", currentValue);
-				model.addAttribute("transactions", transactions);
-				return "portfolio.html";
-			}
-		} else {
-			session.setAttribute("fail", "Invalid Session, Login First");
-			return "redirect:/login";
-		}
+	public String viewPortfolio(
+	        HttpSession session,
+	        Model model) {
 
+	    if (session.getAttribute("user")
+	            != null) {
+
+	        User user =
+	                (User) session.getAttribute(
+	                        "user");
+
+	        List<UserStocksTransaction>
+	                transactions =
+	                user.getTransactions();
+
+	        if (transactions.isEmpty()) {
+
+	            session.setAttribute(
+	                    "fail",
+	                    "No Data to display in Portfolio");
+
+	            return "redirect:/";
+
+	        } else {
+
+	            double totalInvested =
+	                    transactions.stream()
+	                    .mapToDouble(
+	                        x -> x.getPrice()
+	                        * x.getQuantity())
+	                    .sum();
+
+	            double currentValue = 0;
+
+	            double totalProfitLoss = 0;
+
+	            for (UserStocksTransaction
+	                    transaction :
+	                    transactions) {
+
+	                Optional<Stock> opStock =
+	                        stockRepository.findById(
+	                                transaction.getStock_ticker());
+
+	                if (opStock.isPresent()) {
+
+	                    Stock stock =
+	                            opStock.get();
+
+	                    updateStockFromAPI(stock);
+
+	                    stockRepository.save(stock);
+
+	                    double currentStockValue =
+	                            stock.getPrice()
+	                            * transaction.getQuantity();
+
+	                    currentValue +=
+	                            currentStockValue;
+
+	                    double investedAmount =
+	                            transaction.getPrice()
+	                            * transaction.getQuantity();
+
+	                    double profitLoss =
+	                            currentStockValue
+	                            - investedAmount;
+
+	                    transaction.setProfitLoss(
+	                            profitLoss);
+
+	                    totalProfitLoss +=
+	                            profitLoss;
+	                }
+	            }
+
+	            model.addAttribute(
+	                    "totalInvested",
+	                    totalInvested);
+
+	            model.addAttribute(
+	                    "currentValue",
+	                    currentValue);
+
+	            model.addAttribute(
+	                    "profitLoss",
+	                    totalProfitLoss);
+
+	            model.addAttribute(
+	                    "transactions",
+	                    transactions);
+
+	            return "portfolio.html";
+	        }
+
+	    } else {
+
+	        session.setAttribute(
+	                "fail",
+	                "Invalid Session, Login First");
+
+	        return "redirect:/login";
+	    }
 	}
-
 	@Override
 	public String viewSell(String ticker, HttpSession session, Model model) {
 		if (session.getAttribute("user") != null) {
@@ -645,5 +800,36 @@ public class StockServiceImpl implements StockService {
 			session.setAttribute("fail", "Invalid Session, Login First");
 			return "redirect:/login";
 		}
+	}
+	@Override
+	public String addMoney(
+	        double amount,
+	        HttpSession session) {
+
+	    if (session.getAttribute("user")
+	            != null) {
+
+	        User user =
+	                (User) session.getAttribute("user");
+
+	        user.setAmount(
+	                user.getAmount() + amount);
+
+	        session.setAttribute(
+	                "user",
+	                userRepository.save(user));
+
+	        session.setAttribute(
+	                "pass",
+	                "Money Added Successfully");
+
+	        return "redirect:/wallet";
+	    }
+
+	    session.setAttribute(
+	            "fail",
+	            "Login First");
+
+	    return "redirect:/login";
 	}
 }

@@ -357,21 +357,18 @@
           "name": "NammaStocks",
           "description": "Wallet Recharge",
           "image": "https://img.etimg.com/thumb/width-1200,height-900,imgsize-58262,resizemode-75,msid-118580149/markets/stocks/news/ahead-of-market-10-things-that-will-decide-stock-market-action-on-thursday.jpg",
-          "method": "upi",
           "order_id": [[${orderId}]],
           "prefill": {
               "name": [[${userName}]],
               "email": [[${userEmail}]],
               "contact": [[${userMobile}]]
           },
-          "display": {
-              "hide": [
-                  { "method": "paylater" }
-              ]
-          },
+         
           "handler": function (response){
-              window.location.href = "/wallet/" + [[${orderAmount}]];
-          },
+        	    window.location.href =
+        	        "/payment-success?amount="
+        	        + [[${orderAmount}]];
+        	},
           "notes": {
               "address": "NammaStocks Corporate Office"
           },

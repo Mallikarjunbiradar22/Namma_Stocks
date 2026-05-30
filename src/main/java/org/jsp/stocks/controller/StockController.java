@@ -142,4 +142,13 @@ public class StockController {
 	public String sellShares(@RequestParam double quantity,@RequestParam String ticker,HttpSession session) {
 		return service.sellStocks(quantity,ticker,session);
 	}
+	@GetMapping("/add-money")
+	public String addMoney(
+	        @RequestParam double amount,
+	        HttpSession session) {
+
+	    return service.addMoney(
+	            amount,
+	            session);
+	}
 }
